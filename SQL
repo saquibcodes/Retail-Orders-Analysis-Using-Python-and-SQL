@@ -1,0 +1,67 @@
+-- top 10 products by revenue
+select  product_id, sum(discounted_price) as sales
+ from df_orders group by product_id order by sales desc 
+ limit 10;
+ 
+ 
+ -- top 5 product in each region
+ with cte as (
+select region, sum(discounted_price) as sales
+ from df_orders group by region, product_id order by region, sales desc )
+ 
+ select * from(
+ select *, row_number() over(partition by region order by sales desc) as rno
+ from cte) c where rno<=5
+;
+
+
+
+-- mom growth comp for 2022&23
+with cte  as(
+select year(order_date) as yr , month(order_date) as mo , sum(discounted_price) as sales
+from df_orders group by year(order_date) , month(order_date) 
+
+)
+select mo, sum(case when yr=2022 then sales else 0 end) as s_2022 ,
+sum(case when yr=2023 then sales else 0 end) as s_2023 
+from cte
+group by mo 
+order by  mo;
+
+
+-- highest sale mo by category 
+with cte as (
+select category, date_format(order_date,'%Y%M') as order_mo ,
+sum(discounted_price) as sales 
+from df_orders
+group by category, order_mo
+
+)
+select * from ( 
+select * , row_number() over(partition by category order by sales desc) as rn
+from cte) a 
+where rn=1
+;
+
+
+
+-- sub category with highest growth by profit in 2023 from  2022 
+
+with cte  as(
+select sub_category, year(order_date) as yr  , sum(discounted_price) as sales
+from df_orders 
+group by sub_category, year(order_date) 
+)
+, cte2 as (
+select sub_category, sum(case when yr=2022 then sales else 0 end) as s_2022 ,
+sum(case when yr=2023 then sales else 0 end) as s_2023 
+from cte
+group by sub_category 
+)
+select *,
+ (s_2023 - s_2022)*100/ s_2022 as per
+ from cte2
+ order by per desc
+ limit 1
+;
+
